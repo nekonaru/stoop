@@ -1,0 +1,27 @@
+# Secrets
+.env
+*.key
+*.pem
+
+# Ruby
+/.bundle/
+/vendor/bundle/
+/pkg/
+/coverage/
+/doc/
+*.gem
+
+# Local databases and runtime data
+/stoop.db
+/data/
+
+# OS and editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Logs
+*.log
