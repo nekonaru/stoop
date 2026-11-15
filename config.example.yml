@@ -1,0 +1,23 @@
+# Stoop configuration (all optional).
+# Copy to ~/.stoop/config.yml and adjust.
+
+# How often `stoop run` checks prices. Minimum 30.
+check_interval_minutes: 60
+
+# Minimum hours between notifications for the same product.
+cooldown_hours: 12
+
+# Consecutive failures before a product is marked stale.
+stale_after_failures: 3
+
+# Notify when a product is back in stock.
+notify_on_restock: true
+
+# Drop threshold (percent) used when a product has no drop_percent set.
+default_drop_percent: 10
+
+# Override the database location (default: ~/.stoop/stoop.db).
+# database: /path/to/stoop.db
+
+# Honest User-Agent sent to every site. Keep it honest; do not spoof a browser.
+# user_agent: Stoop/0.1.0 (+https://github.com/nekonaru/stoop)
