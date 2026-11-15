@@ -23,7 +23,7 @@ RSpec.describe 'Security invariants' do
     rescue StandardError
       nil
     end
-    FileUtils.remove_entry(dir)
+    remove_tree(dir)
   end
 
   it 'does not execute SQL from an untrusted product name' do
