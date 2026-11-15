@@ -1,13 +1,119 @@
 # frozen_string_literal: true
 
 require 'spec_helper'
+require 'tmpdir'
+require 'stoop/cli'
 
 RSpec.describe Stoop::CLI do
-  it 'prints the version' do
-    expect { described_class.start(['version']) }.to output(/#{Stoop::VERSION}/).to_stdout
+  let(:dir) { Dir.mktmpdir }
+  let(:db_path) { File.join(dir, 'stoop-test.db') }
+
+  before do
+    ENV['STOOP_DB'] = db_path
   end
 
-  it 'exits with success on --help' do
-    expect { described_class.start(['--help']) }.to output(/Commands|version/).to_stdout
+  after do
+    ENV.delete('STOOP_DB')
+    ObjectSpace.each_object(Stoop::DB) do |db|
+      db.close
+    rescue StandardError
+      nil
+    end
+    FileUtils.remove_entry(dir)
+  end
+
+  def result(price: 249_000, name: 'Sepatu Test')
+    Stoop::Adapters::Result.new(name: name, price: price, currency: 'IDR', in_stock: true)
+  end
+
+  def adapter_double
+    instance_double(Stoop::Adapters::Generic)
+  end
+
+  describe 'version' do
+    it 'prints the version' do
+      expect { described_class.start(['version']) }.to output(/#{Stoop::VERSION}/).to_stdout
+    end
+  end
+
+  describe 'add' do
+    it 'adds a product, fetching its name' do
+      adapter = adapter_double
+      allow(adapter).to receive(:fetch).and_return(result)
+      allow(Stoop::Adapters).to receive(:for_url).and_return(adapter)
+
+      expect { described_class.start(['add', 'https://shop.example.com/1', '--target', '250000']) }
+        .to output(/Added product #1: Sepatu Test/).to_stdout
+    end
+
+    it 'rejects a duplicate URL' do
+      adapter = adapter_double
+      allow(adapter).to receive(:fetch).and_return(result)
+      allow(Stoop::Adapters).to receive(:for_url).and_return(adapter)
+
+      described_class.start(['add', 'https://shop.example.com/1'])
+      expect { described_class.start(['add', 'https://shop.example.com/1']) }
+        .to raise_error(SystemExit).and output(/already in watchlist/).to_stderr
+    end
+
+    it 'rejects a non-http URL' do
+      expect { described_class.start(['add', 'ftp://shop.example.com/1']) }
+        .to raise_error(SystemExit).and output(/http or https/).to_stderr
+    end
+  end
+
+  describe 'check' do
+    it 'fetches the price and stores a price point' do
+      adapter = adapter_double
+      allow(adapter).to receive(:fetch).and_return(result(price: 249_000))
+      allow(Stoop::Adapters).to receive(:for_url).and_return(adapter)
+
+      described_class.start(['add', 'https://shop.example.com/1', '--name', 'Sepatu Test'])
+      expect { described_class.start(['check']) }
+        .to output(/#1 Sepatu Test: Rp 249\.000/).to_stdout.and raise_error(SystemExit)
+    end
+
+    it 'reports failures without crashing and exits 1' do
+      adapter = adapter_double
+      allow(adapter).to receive(:fetch).and_raise(Stoop::Adapters::ParseError, 'no price found')
+      allow(Stoop::Adapters).to receive(:for_url).and_return(adapter)
+
+      described_class.start(['add', 'https://shop.example.com/1', '--name', 'Sepatu Test'])
+      expect { described_class.start(['check']) }
+        .to raise_error(SystemExit).and output(/gagal: no price found/).to_stderr
+    end
+  end
+
+  describe 'list' do
+    it 'shows an empty watchlist message' do
+      expect { described_class.start(['list']) }.to raise_error(SystemExit)
+    end
+  end
+
+  describe 'remove' do
+    it 'removes the product' do
+      adapter = adapter_double
+      allow(adapter).to receive(:fetch).and_return(result)
+      allow(Stoop::Adapters).to receive(:for_url).and_return(adapter)
+
+      described_class.start(['add', 'https://shop.example.com/1', '--name', 'Sepatu Test'])
+      expect { described_class.start(%w[remove 1]) }.to output(/Removed product #1/).to_stdout
+    end
+
+    it 'fails for an unknown ID' do
+      expect { described_class.start(%w[remove 99]) }.to raise_error(SystemExit)
+    end
+  end
+
+  describe 'history' do
+    it 'shows stored price points' do
+      adapter = adapter_double
+      allow(adapter).to receive(:fetch).and_return(result(price: 249_000))
+      allow(Stoop::Adapters).to receive(:for_url).and_return(adapter)
+
+      described_class.start(['add', 'https://shop.example.com/1', '--name', 'Sepatu Test'])
+      expect { described_class.start(['check']) }.to raise_error(SystemExit)
+      expect { described_class.start(%w[history 1]) }.to output(/249\.000/).to_stdout
+    end
   end
 end
