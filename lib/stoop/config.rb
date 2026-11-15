@@ -40,11 +40,13 @@ module Stoop
       load_dotenv(env)
 
       file = path || env['STOOP_CONFIG'] || detect_config_file
-      values = file && File.exist?(file) ? (YAML.safe_load_file(file, aliases: true) || {}) : {}
-      raise ArgumentError, "config file #{file} must contain a YAML mapping" unless values.is_a?(Hash)
+      raw = file && File.exist?(file) ? YAML.safe_load_file(file, aliases: false) : {}
+      raise ArgumentError, "config file #{file} must contain a YAML mapping" unless raw.nil? || raw.is_a?(Hash)
 
-      @values = DEFAULTS.merge(values.transform_keys(&:to_s))
+      @values = DEFAULTS.merge((raw || {}).transform_keys(&:to_s))
       self
+    rescue Psych::Exception => e
+      raise ArgumentError, "config file #{file} is invalid: #{e.message}"
     end
 
     def [](key)

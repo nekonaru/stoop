@@ -21,6 +21,7 @@ module Stoop
     # raises RobotsDisallowed. If no price can be extracted, raises ParseError.
     class Generic < Base
       JSON_LD_TYPES = %w[product].freeze
+      MAX_BODY_BYTES = 10 * 1024 * 1024 # 10 MB, generous for product pages
 
       def initialize(http_client: nil, robots: nil)
         super()
@@ -33,7 +34,12 @@ module Stoop
         raise RobotsDisallowed, "robots.txt disallows fetching #{uri.path} for #{uri.host}" unless @robots.allowed?(uri)
 
         response = @http_client.get(url)
-        doc = Nokogiri::HTML(response.body)
+        body = response.body.to_s
+        if body.bytesize > MAX_BODY_BYTES
+          raise ParseError, "response too large (#{body.bytesize} bytes), refusing to parse"
+        end
+
+        doc = Nokogiri::HTML(body)
 
         data = from_json_ld(doc) || from_meta(doc) || from_selector(doc, selector)
         raise ParseError, "no price found on #{uri.host}#{uri.path}" if data.nil?
