@@ -1,0 +1,20 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+repo_gemfile = File.expand_path('../Gemfile', __dir__)
+
+# When running from a repository checkout, set up the bundle. When installed
+# as a gem, the gem's own require path is enough.
+begin
+  require 'bundler/setup' if ENV['BUNDLE_GEMFILE'] || File.exist?(repo_gemfile)
+rescue LoadError, StandardError
+  warn 'bundler is not available; run `bundle install` first'
+  exit 1
+end
+
+lib = File.expand_path('../lib', __dir__)
+$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
+
+require 'stoop'
+
+Stoop::CLI.start(ARGV)

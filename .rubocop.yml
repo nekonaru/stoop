@@ -1,0 +1,32 @@
+AllCops:
+  NewCops: enable
+  TargetRubyVersion: 3.2
+  SuggestExtensions: false
+
+Style/Documentation:
+  Enabled: false
+
+Metrics/MethodLength:
+  Max: 30
+
+Metrics/AbcSize:
+  Max: 30
+
+Metrics/CyclomaticComplexity:
+  Max: 13
+
+Metrics/PerceivedComplexity:
+  Max: 13
+
+Metrics/ClassLength:
+  Max: 160
+
+Metrics/BlockLength:
+  Exclude:
+    - 'spec/**/*'
+
+Layout/LineLength:
+  Max: 120
+
+Layout/EndOfLine:
+  EnforcedStyle: lf
