@@ -24,6 +24,7 @@ Metrics/ClassLength:
 Metrics/BlockLength:
   Exclude:
     - 'spec/**/*'
+    - 'lib/stoop/cli.rb'
 
 Layout/LineLength:
   Max: 120
