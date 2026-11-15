@@ -26,7 +26,7 @@ RSpec.describe Stoop::Tracker do
   after do
     ENV.delete('STOOP_DB')
     db.close
-    FileUtils.remove_entry(dir)
+    remove_tree(dir)
   end
 
   def product_with(target_price: nil, drop_percent: nil)

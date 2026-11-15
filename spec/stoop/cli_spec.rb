@@ -19,7 +19,7 @@ RSpec.describe Stoop::CLI do
     rescue StandardError
       nil
     end
-    FileUtils.remove_entry(dir)
+    remove_tree(dir)
   end
 
   def result(price: 249_000, name: 'Sepatu Test')
