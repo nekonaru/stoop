@@ -327,7 +327,7 @@ stoop/
 ## Testing
 
 ```bash
-bundle exec rspec                          # 114 examples
+bundle exec rspec                          # 121 examples
 bundle exec rubocop                        # 0 offenses
 bundle exec ruby scripts/coverage_check.rb # parser and rules above 80%
 bundle exec bin/stoop --help               # smoke test

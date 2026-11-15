@@ -327,7 +327,7 @@ stoop/
 ## Pengujian
 
 ```bash
-bundle exec rspec                          # 114 examples
+bundle exec rspec                          # 121 examples
 bundle exec rubocop                        # 0 offense
 bundle exec ruby scripts/coverage_check.rb # parser dan rules di atas 80%
 bundle exec bin/stoop --help               # smoke test
