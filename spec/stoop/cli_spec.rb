@@ -105,6 +105,46 @@ RSpec.describe Stoop::CLI do
     end
   end
 
+  describe 'export' do
+    it 'exports price history as CSV to stdout' do
+      adapter = adapter_double
+      allow(adapter).to receive(:fetch).and_return(result(price: 249_000))
+      allow(Stoop::Adapters).to receive(:for_url).and_return(adapter)
+
+      described_class.start(['add', 'https://shop.example.com/1', '--name', 'Sepatu Test'])
+      expect { described_class.start(['check']) }.to raise_error(SystemExit)
+      expect { described_class.start(['export']) }
+        .to output(/product_id,name,url,checked_at,price,currency,in_stock/).to_stdout
+    end
+
+    it 'writes CSV to a file' do
+      adapter = adapter_double
+      allow(adapter).to receive(:fetch).and_return(result(price: 249_000))
+      allow(Stoop::Adapters).to receive(:for_url).and_return(adapter)
+
+      described_class.start(['add', 'https://shop.example.com/1', '--name', 'Sepatu Test'])
+      expect { described_class.start(['check']) }.to raise_error(SystemExit)
+
+      output_path = File.join(dir, 'export.csv')
+      expect { described_class.start(['export', '--output', output_path]) }
+        .to output(/Exported 1 rows/).to_stdout
+      content = File.read(output_path)
+      expect(content).to include('Sepatu Test').and include('249000')
+    end
+  end
+
+  describe 'run' do
+    it 'runs a single check cycle with --once' do
+      adapter = adapter_double
+      allow(adapter).to receive(:fetch).and_return(result(price: 249_000))
+      allow(Stoop::Adapters).to receive(:for_url).and_return(adapter)
+
+      described_class.start(['add', 'https://shop.example.com/1', '--name', 'Sepatu Test'])
+      expect { described_class.start(['run', '--once']) }
+        .to output(/cycle complete: 1 products/).to_stdout
+    end
+  end
+
   describe 'history' do
     it 'shows stored price points' do
       adapter = adapter_double

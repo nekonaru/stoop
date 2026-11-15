@@ -20,6 +20,8 @@ Metrics/PerceivedComplexity:
 
 Metrics/ClassLength:
   Max: 160
+  Exclude:
+    - 'lib/stoop/cli.rb'
 
 Metrics/BlockLength:
   Exclude:
