@@ -42,7 +42,7 @@ module Stoop
       uri = parse_url(url)
       fail_with("URL must use http or https: #{url}") unless %w[http https].include?(uri.scheme)
 
-      name = options[:name] || fetch_name(uri.to_s) || uri.to_s
+      name = resolve_name(uri)
 
       id = db.add_product(name: name, url: uri.to_s,
                           target_price: options[:target]&.to_i,
@@ -51,7 +51,7 @@ module Stoop
       report_added(id, name, uri, options[:target])
     rescue SQLite3::ConstraintException
       existing = db.find_product_by_url(uri.to_s)
-      fail_with("already in watchlist as ##{existing['id']}: #{existing['name']}")
+      fail_with("already in watchlist as ##{existing['id']}: #{Format.plain(existing['name'])}")
     end
 
     desc 'list', 'List watchlist products'
@@ -196,13 +196,14 @@ module Stoop
       end
 
       def log_outcome(timestamp, outcome)
+        name = Format.plain(outcome.name)
         if outcome.error
-          warn "[#{timestamp}] ##{outcome.product_id} #{outcome.name}: gagal: #{outcome.error}"
+          warn "[#{timestamp}] ##{outcome.product_id} #{name}: gagal: #{Format.plain(outcome.error)}"
           return
         end
 
         suffix = outcome.notified ? ', notif terkirim' : ''
-        puts "[#{timestamp}] ##{outcome.product_id} #{outcome.name}: #{Format.price(outcome.price)}#{suffix}"
+        puts "[#{timestamp}] ##{outcome.product_id} #{name}: #{Format.price(outcome.price)}#{suffix}"
       end
 
       def report_added(id, name, uri, target)
@@ -214,7 +215,7 @@ module Stoop
 
       def report_outcome(outcome)
         if outcome.error
-          warn "  gagal: #{outcome.error}"
+          warn "  gagal: #{Format.plain(outcome.error)}"
           return
         end
 
@@ -222,6 +223,10 @@ module Stoop
         suffix = outcome.notified ? ', notif terkirim' : ''
         puts "##{outcome.product_id} #{Format.truncate(outcome.name,
                                                        40)}: #{Format.price(outcome.price)} (#{change}#{suffix})"
+      end
+
+      def resolve_name(uri)
+        options[:name] || fetch_name(uri.to_s) || uri.to_s
       end
 
       def fetch_name(url)
