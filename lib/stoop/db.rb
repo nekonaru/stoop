@@ -140,10 +140,16 @@ module Stoop
       !find_product(product_id)['stale_notified_at'].nil?
     end
 
-    def all_price_points
-      @db.execute('SELECT price_points.*, products.name AS product_name, products.url AS product_url
-                   FROM price_points JOIN products ON products.id = price_points.product_id
-                   ORDER BY products.id, price_points.checked_at ASC, price_points.id ASC')
+    def all_price_points(product_id: nil)
+      sql = 'SELECT price_points.*, products.name AS product_name, products.url AS product_url
+             FROM price_points JOIN products ON products.id = price_points.product_id'
+      args = []
+      if product_id
+        sql += ' WHERE products.id = ?'
+        args << product_id
+      end
+      sql += ' ORDER BY products.id, price_points.checked_at ASC, price_points.id ASC'
+      @db.execute(sql, args)
     end
 
     private

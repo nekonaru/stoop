@@ -4,6 +4,7 @@ require 'thor'
 require 'time'
 require 'uri'
 require_relative 'version'
+require_relative 'format'
 require_relative 'db'
 require_relative 'config'
 require_relative 'adapters'
@@ -12,6 +13,15 @@ require_relative 'tracker'
 module Stoop
   # Command line interface for Stoop.
   class CLI < Thor
+    # Thor reserves `run` defensively. This CLI does not include Thor::Actions,
+    # so defining the `run` command is safe.
+    # rubocop:disable-next Naming/PredicatePrefix
+    def self.is_thor_reserved_word?(word, type)
+      return false if word == 'run' && type == :command
+
+      super
+    end
+
     def self.exit_on_failure?
       true
     end
@@ -52,13 +62,14 @@ module Stoop
 
       rows = products.map do |product|
         latest = db.latest_price_point(product['id'])
-        price = latest ? format_price(latest['price']) : '(no data)'
-        target = product['target_price'] ? format_price(product['target_price']) : '-'
+        price = latest ? Format.price(latest['price']) : '(no data)'
+        target = product['target_price'] ? Format.price(product['target_price']) : '-'
         drop = product['drop_percent'] ? "#{product['drop_percent']}%" : '-'
         active = product['active'] == 1 ? 'yes' : 'no'
-        [product['id'], truncate(product['name'], 40), price, target, drop, active, truncate(product['url'], 60)]
+        [product['id'], Format.truncate(product['name'], 40), price, target, drop, active,
+         Format.truncate(product['url'], 60)]
       end
-      print_table(%w[ID Name Price Target Drop Active URL], rows)
+      puts Format.table(%w[ID Name Price Target Drop Active URL], rows)
     end
 
     desc 'remove ID', 'Remove a product from the watchlist'
@@ -91,6 +102,63 @@ module Stoop
       exit(failures.positive? ? 1 : 0)
     end
 
+    desc 'run', 'Run the watch loop in the foreground (Ctrl+C stops)'
+    option :once, type: :boolean, default: false, desc: 'Run a single check cycle and exit'
+    def run
+      interval = config.check_interval_minutes
+      if interval < 30
+        warn 'Interval di bawah 30 menit tidak diizinkan; dipakai 30 menit.'
+        interval = 30
+      end
+
+      tracker = Stoop::Tracker.new(db: db, config: config)
+
+      unless config.telegram_configured?
+        warn 'Telegram belum dikonfigurasi (TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID); notifikasi dilewati.'
+      end
+
+      if options[:once]
+        log_cycle(tracker)
+        return
+      end
+
+      warn "Stoop #{VERSION}: memantau setiap #{interval} menit. Ctrl+C untuk berhenti."
+      log_cycle(tracker)
+
+      require 'rufus-scheduler'
+      scheduler = Rufus::Scheduler.new
+      scheduler.every("#{interval}m") { log_cycle(tracker) }
+      stop = -> { scheduler.shutdown(:wait) }
+      trap('INT', &stop)
+      trap('TERM', &stop)
+      scheduler.join
+    end
+
+    desc 'export [ID]', 'Export price history as CSV (stdout, or --output FILE)'
+    option :output, type: :string, desc: 'Write the CSV to FILE instead of stdout'
+    def export(id = nil)
+      product_id = nil
+      if id
+        product = find_product_or_fail(id)
+        product_id = product['id']
+      end
+
+      rows = [%w[product_id name url checked_at price currency in_stock]]
+      db.all_price_points(product_id: product_id).each do |row|
+        rows << [row['product_id'], row['product_name'], row['product_url'],
+                 row['checked_at'], row['price'], row['currency'], row['in_stock'] == 1 ? 'true' : 'false']
+      end
+
+      csv = rows.map { |row| Format.csv_row(row) }.join
+
+      if options[:output]
+        File.write(options[:output], csv)
+        puts "Exported #{csv.lines.length - 1} rows to #{options[:output]}"
+      else
+        print csv
+      end
+    end
+
     desc 'history ID', 'Show price history for a product'
     option :limit, type: :numeric, desc: 'Limit the number of points shown'
     def history(id)
@@ -103,12 +171,12 @@ module Stoop
       rows = []
       previous = nil
       points.each do |point|
-        change = percent_change(previous, point['price'])
-        rows << [format_time(point['checked_at']), format_price(point['price']), point['currency'],
+        change = Format.percent_change(previous, point['price'])
+        rows << [Format.time(point['checked_at']), Format.price(point['price']), point['currency'],
                  point['in_stock'] == 1 ? 'yes' : 'NO', change]
         previous = point['price']
       end
-      print_table(%w[Checked Price Cur Stock Change], rows)
+      puts Format.table(%w[Checked Price Cur Stock Change], rows)
     end
 
     no_commands do
@@ -120,10 +188,27 @@ module Stoop
         @config ||= Config.load
       end
 
+      def log_cycle(tracker)
+        timestamp = Time.now.utc.strftime('%Y-%m-%dT%H:%M:%SZ')
+        outcomes = tracker.check_all
+        outcomes.each { |outcome| log_outcome(timestamp, outcome) }
+        puts "[#{timestamp}] cycle complete: #{outcomes.size} products"
+      end
+
+      def log_outcome(timestamp, outcome)
+        if outcome.error
+          warn "[#{timestamp}] ##{outcome.product_id} #{outcome.name}: gagal: #{outcome.error}"
+          return
+        end
+
+        suffix = outcome.notified ? ', notif terkirim' : ''
+        puts "[#{timestamp}] ##{outcome.product_id} #{outcome.name}: #{Format.price(outcome.price)}#{suffix}"
+      end
+
       def report_added(id, name, uri, target)
         puts "Added product ##{id}: #{name}"
         puts "  URL: #{uri}"
-        puts "  Target: #{target ? format_price(target.to_i) : '(not set)'}"
+        puts "  Target: #{target ? Format.price(target.to_i) : '(not set)'}"
       end
 
       def report_outcome(outcome)
@@ -132,9 +217,10 @@ module Stoop
           return
         end
 
-        change = percent_change(outcome.previous_price, outcome.price)
+        change = Format.percent_change(outcome.previous_price, outcome.price)
         suffix = outcome.notified ? ', notif terkirim' : ''
-        puts "##{outcome.product_id} #{truncate(outcome.name, 40)}: #{format_price(outcome.price)} (#{change}#{suffix})"
+        puts "##{outcome.product_id} #{Format.truncate(outcome.name,
+                                                       40)}: #{Format.price(outcome.price)} (#{change}#{suffix})"
       end
 
       def fetch_name(url)
@@ -162,37 +248,6 @@ module Stoop
       def fail_with(message)
         warn message
         exit(1)
-      end
-
-      def format_price(value)
-        "Rp #{value.to_s.reverse.gsub(/(\d{3})(?=\d)/, '\1.').reverse}"
-      end
-
-      def format_time(iso8601)
-        Time.parse(iso8601).localtime.strftime('%Y-%m-%d %H:%M')
-      rescue ArgumentError
-        iso8601
-      end
-
-      def percent_change(previous, current)
-        return '-' if previous.nil? || previous.zero?
-
-        change = ((current - previous).to_f / previous) * 100
-        format('%+.1f%%', change)
-      end
-
-      def truncate(text, length)
-        text = text.to_s
-        text.length > length ? "#{text[0, length - 3]}..." : text
-      end
-
-      def print_table(headers, rows)
-        widths = ([headers] + rows).transpose.map { |column| column.map { |cell| cell.to_s.length }.max }
-        puts headers.map.with_index { |header, i| header.ljust(widths[i]) }.join('  ').rstrip
-        puts widths.map { |width| '-' * width }.join('  ')
-        rows.each do |row|
-          puts row.map.with_index { |cell, i| cell.to_s.ljust(widths[i]) }.join('  ').rstrip
-        end
       end
     end
   end
