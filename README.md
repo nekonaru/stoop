@@ -130,7 +130,7 @@
 git clone https://github.com/nekonaru/stoop.git
 cd stoop
 bundle install
-bundle exec bin/stoop version
+ruby bin/stoop version
 ```
 
 </details>
@@ -140,14 +140,14 @@ bundle exec bin/stoop version
 
 1. Download the [latest release](https://github.com/nekonaru/stoop/releases) as a ZIP from GitHub, or use this command to clone with the GitHub CLI.
 2. Unzip it and open a terminal in the folder.
-3. Run `bundle install` and `bundle exec bin/stoop version`.
+3. Run `bundle install` and `ruby bin/stoop version`.
 
 </details>
 
 > [!IMPORTANT]
-> `bundle exec bin/stoop` is the smoke test. If it prints `Stoop 0.1.0`, the install works.
+> `ruby bin/stoop` is the smoke test. If it prints `Stoop 0.1.0`, the install works.
 
-For convenience, add Stoop to your PATH so `stoop` works without `bundle exec bin/stoop`:
+For convenience, add Stoop to your PATH so `stoop` works without `ruby bin/stoop`:
 
 ```bash
 alias stoop='bundle exec ruby /path/to/stoop/bin/stoop'
@@ -314,7 +314,7 @@ stoop/
 ## Development
 
 1. **Install dependencies**: `bundle install`
-2. **Run the CLI**: `bundle exec bin/stoop --help`
+2. **Run the CLI**: `ruby bin/stoop --help`
 3. **Add a command**: add a `desc`/`def` pair in `lib/stoop/cli.rb`, add specs in `spec/stoop/cli_spec.rb`.
 4. **Add an adapter**: copy `lib/stoop/adapters/example_shop.rb`, register in `lib/stoop/adapters.rb`, add a fixture and a spec.
 5. **Style**: `bundle exec rubocop` must report zero offenses.
@@ -330,7 +330,7 @@ stoop/
 bundle exec rspec                          # 121 examples
 bundle exec rubocop                        # 0 offenses
 bundle exec ruby scripts/coverage_check.rb # parser and rules above 80%
-bundle exec bin/stoop --help               # smoke test
+ruby bin/stoop --help               # smoke test
 ```
 
 | Check | Requirement |

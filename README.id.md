@@ -130,7 +130,7 @@
 git clone https://github.com/nekonaru/stoop.git
 cd stoop
 bundle install
-bundle exec bin/stoop version
+ruby bin/stoop version
 ```
 
 </details>
@@ -140,14 +140,14 @@ bundle exec bin/stoop version
 
 1. Unduh [rilis terbaru](https://github.com/nekonaru/stoop/releases) sebagai ZIP dari GitHub, atau clone dengan GitHub CLI.
 2. Ekstrak dan buka terminal di folder tersebut.
-3. Jalankan `bundle install` lalu `bundle exec bin/stoop version`.
+3. Jalankan `bundle install` lalu `ruby bin/stoop version`.
 
 </details>
 
 > [!IMPORTANT]
-> `bundle exec bin/stoop` adalah smoke test. Jika mencetak `Stoop 0.1.0`, instalasi berhasil.
+> `ruby bin/stoop` adalah smoke test. Jika mencetak `Stoop 0.1.0`, instalasi berhasil.
 
-Supaya `stoop` bisa dipanggil langsung tanpa `bundle exec bin/stoop`, tambahkan ke PATH:
+Supaya `stoop` bisa dipanggil langsung tanpa `ruby bin/stoop`, tambahkan ke PATH:
 
 ```bash
 alias stoop='bundle exec ruby /path/to/stoop/bin/stoop'
@@ -314,7 +314,7 @@ stoop/
 ## Pengembangan
 
 1. **Instal dependency**: `bundle install`
-2. **Jalankan CLI**: `bundle exec bin/stoop --help`
+2. **Jalankan CLI**: `ruby bin/stoop --help`
 3. **Tambah perintah**: tambahkan pasangan `desc`/`def` di `lib/stoop/cli.rb`, tambah spec di `spec/stoop/cli_spec.rb`.
 4. **Tambah adapter**: salin `lib/stoop/adapters/example_shop.rb`, daftarkan di `lib/stoop/adapters.rb`, tambah fixture dan spec.
 5. **Gaya**: `bundle exec rubocop` harus melaporkan nol offense.
@@ -330,7 +330,7 @@ stoop/
 bundle exec rspec                          # 121 examples
 bundle exec rubocop                        # 0 offense
 bundle exec ruby scripts/coverage_check.rb # parser dan rules di atas 80%
-bundle exec bin/stoop --help               # smoke test
+ruby bin/stoop --help               # smoke test
 ```
 
 | Cek | Syarat |
