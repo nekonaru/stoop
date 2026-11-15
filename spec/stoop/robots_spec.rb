@@ -49,8 +49,8 @@ RSpec.describe Stoop::Robots do
     expect(robots.allowed?(uri)).to be(true)
   end
 
-  it 'allows fetching when robots.txt cannot be fetched' do
+  it 'refuses to fetch when robots.txt cannot be fetched' do
     stub_request(:get, 'https://shop.example.com/robots.txt').to_timeout
-    expect(robots.allowed?(uri)).to be(true)
+    expect(robots.allowed?(uri)).to be(false)
   end
 end

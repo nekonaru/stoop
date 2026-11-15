@@ -1,20 +1,19 @@
 # frozen_string_literal: true
 
 require 'yaml'
-require 'erb'
 
 module Stoop
   # Configuration: tunables from config.yml (optional), secrets from ENV.
   #
   # Lookup order:
   #   1. STOOP_CONFIG environment variable (path to a yml file)
-  #   2. ./config.yml
-  #   3. ~/.stoop/config.yml
-  #   4. built-in defaults
+  #   2. ~/.stoop/config.yml
+  #   3. built-in defaults
   #
   # Secrets (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID) come from ENV only, never
-  # from config.yml. If a .env file exists next to the working directory it
-  # is loaded into ENV (simple KEY=VALUE, comments and blank lines allowed).
+  # from config.yml. ~/.stoop/.env is loaded into ENV if present (simple
+  # KEY=VALUE, comments and blank lines allowed). A .env file in the working
+  # directory is ignored because the directory is not trusted.
   class Config
     DEFAULTS = {
       'check_interval_minutes' => 60,
@@ -88,13 +87,15 @@ module Stoop
     private
 
     def detect_config_file
-      [File.expand_path('config.yml'), File.join(Dir.home, '.stoop', 'config.yml')].find { |f| File.exist?(f) }
+      File.join(Dir.home, '.stoop', 'config.yml').then { |f| File.exist?(f) ? f : nil }
     end
 
     # Minimal .env loader: KEY=VALUE lines, # comments, optional surrounding
     # quotes. Does not override variables already set in the environment.
+    # Only ~/.stoop/.env is auto-loaded; a file named .env in the working
+    # directory is ignored because the directory is not trusted.
     def load_dotenv(env)
-      path = File.expand_path('.env')
+      path = File.join(Dir.home, '.stoop', '.env')
       return unless File.exist?(path)
 
       File.readlines(path, chomp: true).each do |raw|

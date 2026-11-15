@@ -19,8 +19,8 @@ Out of scope: vulnerabilities in merchant websites Stoop reads from, and vulnera
 ## What Stoop does to stay safe
 
 - Secrets come from environment variables only and are never logged. Telegram API errors surface the HTTP status and Telegram's description, never the token.
-- All outbound requests use an honest User-Agent, timeouts, per-host rate limiting, and a 10 second read timeout. Bodies over 10 MB are refused.
-- robots.txt is honored: disallowed URLs are never fetched.
+- All outbound requests use an honest User-Agent, timeouts, per-host rate limiting, and a 10 MB cap enforced during download.
+- robots.txt is honored: disallowed paths, and any path whose robots.txt cannot be verified, are never fetched. An absent robots.txt (404) allows fetching.
 - SQL uses parameterized queries. No shell is ever invoked. No eval, no YAML aliases (plain YAML only).
 - Responses are not redirected implicitly.
 - CI enforces RuboCop, the RSpec suite, a minimum coverage gate and a secret scan before any merge.

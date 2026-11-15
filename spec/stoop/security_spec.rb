@@ -60,7 +60,7 @@ RSpec.describe 'Security invariants' do
                                  sleeper: sleeper, max_retries: 0)
     adapter = Stoop::Adapters::Generic.new(http_client: http)
     expect { adapter.fetch('https://shop.example.com/huge') }
-      .to raise_error(Stoop::Adapters::ParseError, /too large/)
+      .to raise_error(Stoop::Adapters::HttpError, /too large/)
   end
 
   it 'treats robots.txt disallow as a hard stop before fetching' do
@@ -99,14 +99,16 @@ RSpec.describe 'Security invariants' do
       .to raise_error(Stoop::Notifiers::NotifierError) { |e| expect(e.message).not_to include('secret-token') }
   end
 
-  it 'loads .env values into the process env without printing them' do
-    env_path = File.join(dir, '.env')
-    File.write(env_path, "TELEGRAM_BOT_TOKEN=leakme-123\n")
+  it 'loads ~/.stoop/.env values into the process env without printing them' do
+    stoop_dir = File.join(dir, '.stoop')
+    FileUtils.mkdir_p(stoop_dir)
+    File.write(File.join(stoop_dir, '.env'), "TELEGRAM_BOT_TOKEN=leakme-123\n")
+    allow(Dir).to receive(:home).and_return(dir)
     env = {}
     out = StringIO.new
     orig = $stderr
     $stderr = out
-    Dir.chdir(dir) { Stoop::Config.new.load(path: nil, env: env) }
+    Stoop::Config.new.load(path: nil, env: env)
     $stderr = orig
     expect(env['TELEGRAM_BOT_TOKEN']).to eq('leakme-123')
     expect(out.string).to eq('')
