@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests (${{ matrix.os }}, Ruby ${{ matrix.ruby }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        ruby: ['3.2', '3.3', '3.4']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure gem source mirror
+        shell: bash
+        run: |
+          mkdir -p ~/.bundle
+          printf '%s\n' '---' 'BUNDLE_MIRROR__HTTPS://INDEX__RUBYGEMS__ORG/: "https://mirrors.tuna.tsinghua.edu.cn/rubygems"' > ~/.bundle/config
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+      - name: Install gems
+        shell: bash
+        run: bundle install --jobs 4
+      - run: bundle exec rubocop
+      - run: bundle exec rspec
+      - name: Check coverage of parser and rules
+        run: bundle exec ruby scripts/coverage_check.rb
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
