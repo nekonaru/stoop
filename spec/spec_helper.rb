@@ -11,12 +11,10 @@ require 'fileutils'
 module TempTreeHelper
   def remove_tree(path)
     3.times do
-      begin
-        FileUtils.remove_entry(path)
-        return
-      rescue Errno::EACCES, Errno::EPERM, Errno::ENOTEMPTY
-        sleep 0.1
-      end
+      FileUtils.remove_entry(path)
+      return
+    rescue Errno::EACCES, Errno::EPERM, Errno::ENOTEMPTY
+      sleep 0.1
     end
   end
 end
