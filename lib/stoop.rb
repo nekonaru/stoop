@@ -8,6 +8,7 @@ require_relative 'stoop/robots'
 require_relative 'stoop/adapters'
 require_relative 'stoop/config'
 require_relative 'stoop/db'
+require_relative 'stoop/tracker'
 require_relative 'stoop/cli'
 
 # Stoop is a command line tool that watches product prices from a list of

@@ -7,6 +7,7 @@ require_relative 'version'
 require_relative 'db'
 require_relative 'config'
 require_relative 'adapters'
+require_relative 'tracker'
 
 module Stoop
   # Command line interface for Stoop.
@@ -76,13 +77,16 @@ module Stoop
                  end
       fail_with('Watchlist is empty. Add one with: stoop add <url> --target 250000') if products.empty?
 
+      unless config.telegram_configured?
+        warn 'Telegram belum dikonfigurasi (TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID); notifikasi dilewati.'
+      end
+
+      tracker = Stoop::Tracker.new(db: db, config: config)
+      outcomes = tracker.check_all(id: id)
       failures = 0
-      products.each do |product|
-        check_product(product)
-      rescue StandardError => e
-        failures += 1
-        warn "  gagal: #{e.message}"
-        db.record_failure(product['id'])
+      outcomes.each do |outcome|
+        report_outcome(outcome)
+        failures += 1 if outcome.error
       end
       exit(failures.positive? ? 1 : 0)
     end
@@ -122,21 +126,15 @@ module Stoop
         puts "  Target: #{target ? format_price(target.to_i) : '(not set)'}"
       end
 
-      def check_product(product)
-        adapter = Adapters.for_url(product['url'])
-        result = adapter.fetch(product['url'], selector: product['selector'])
+      def report_outcome(outcome)
+        if outcome.error
+          warn "  gagal: #{outcome.error}"
+          return
+        end
 
-        previous = db.previous_price_point(product['id'])
-        db.record_price_point(product_id: product['id'], price: result.price,
-                              currency: result.currency, in_stock: result.in_stock)
-        db.reset_failures(product['id'])
-        report_check(product, result, previous)
-      end
-
-      def report_check(product, result, previous)
-        change = percent_change(previous && previous['price'], result.price)
-        stock = result.in_stock ? 'in stock' : 'out of stock'
-        puts "##{product['id']} #{truncate(product['name'], 40)}: #{format_price(result.price)} (#{change}, #{stock})"
+        change = percent_change(outcome.previous_price, outcome.price)
+        suffix = outcome.notified ? ', notif terkirim' : ''
+        puts "##{outcome.product_id} #{truncate(outcome.name, 40)}: #{format_price(outcome.price)} (#{change}#{suffix})"
       end
 
       def fetch_name(url)
