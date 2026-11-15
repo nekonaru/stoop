@@ -20,6 +20,11 @@ jobs:
         ruby: ['3.2', '3.3', '3.4']
     steps:
       - uses: actions/checkout@v4
+      - name: Configure gem source mirror
+        shell: bash
+        run: |
+          mkdir -p ~/.bundle
+          printf '---\nBUNDLE_MIRROR__HTTPS://INDEX__RUBYGEMS__ORG/: "https://mirrors.tuna.tsinghua.edu.cn/rubygems"\n' > ~/.bundle/config
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
@@ -37,3 +42,5 @@ jobs:
         with:
           fetch-depth: 0
       - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
