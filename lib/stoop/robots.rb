@@ -5,7 +5,9 @@ require 'uri'
 module Stoop
   # Minimal robots.txt check. Fetches robots.txt for a host once per process
   # and reports whether the given path is disallowed for our user agent.
-  # Absent or unreadable robots.txt means the path is allowed.
+  # Absent robots.txt (404) means the path is allowed. Anything else
+  # (5xx, timeouts, parse errors) means the path is refused, because
+  # Stoop honors robots.txt and will not fetch what it cannot check.
   #
   # Implements a conservative subset of RFC 9309: groups are separated by
   # blank lines, the most specific matching user agent group wins, and within
@@ -28,7 +30,8 @@ module Stoop
 
     def allowed?(uri)
       groups = (@cache[uri.host] ||= fetch_groups(uri))
-      return true if groups.nil?
+      return true if groups == :missing
+      return false if groups.nil?
 
       group = select_group(groups)
       return true if group.nil?
@@ -48,6 +51,7 @@ module Stoop
     def fetch_groups(uri)
       robots_uri = robots_uri(uri)
       response = @http_client.get_response(robots_uri)
+      return :missing if response.status == 404
       return nil unless response.status.between?(200, 299)
 
       parse_groups(response.body.to_s)
@@ -56,10 +60,9 @@ module Stoop
     end
 
     def robots_uri(uri)
-      args = { scheme: uri.scheme, host: uri.host, path: '/robots.txt' }
       default_port = uri.scheme == 'https' ? 443 : 80
-      args[:port] = uri.port if uri.port && uri.port != default_port
-      URI::Generic.build(args)
+      port_suffix = uri.port && uri.port != default_port ? ":#{uri.port}" : ''
+      URI("#{uri.scheme}://#{uri.host}#{port_suffix}/robots.txt")
     end
 
     # Parses the body into an array of { agents: [...], allow: [...], disallow: [...] } groups.

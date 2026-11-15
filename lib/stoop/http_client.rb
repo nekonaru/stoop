@@ -1,12 +1,14 @@
 # frozen_string_literal: true
 
-require 'faraday'
+require 'net/http'
+require 'openssl'
 require 'uri'
 require_relative 'version'
 
 module Stoop
   # HTTP client with an honest User-Agent, timeouts, per-host rate limiting,
-  # and retry with backoff for transient failures.
+  # retry with backoff for transient failures, and a hard cap on response
+  # bodies. Bodies larger than MAX_BODY_BYTES abort the download.
   #
   # Network errors and 5xx responses are retried up to +max_retries+ times
   # with exponential backoff (1s, 2s, 4s, ...). 4xx responses are not
@@ -15,15 +17,19 @@ module Stoop
     DEFAULT_MAX_RETRIES = 3
     OPEN_TIMEOUT = 5
     READ_TIMEOUT = 10
+    MAX_BODY_BYTES = 10 * 1024 * 1024 # 10 MB
     USER_AGENT = "Stoop/#{Stoop::VERSION} (+https://github.com/nekonaru/stoop)".freeze
 
     Response = Struct.new(:status, :body, :headers)
 
-    def initialize(rate_limiter: nil, sleeper: nil, max_retries: DEFAULT_MAX_RETRIES)
+    # Internal marker raised when a body exceeds the cap mid-download.
+    class BodyTooLarge < StandardError; end
+
+    def initialize(rate_limiter: nil, sleeper: nil, max_retries: DEFAULT_MAX_RETRIES, user_agent: nil)
       @rate_limiter = rate_limiter || RateLimiter.new
       @sleeper = sleeper || ->(seconds) { sleep(seconds) }
       @max_retries = max_retries
-      @connections = {}
+      @user_agent = user_agent || USER_AGENT
     end
 
     # GETs the URL and returns a Response for 2xx. Raises Adapters::HttpError
@@ -50,45 +56,50 @@ module Stoop
       @rate_limiter.wait_for(uri.host)
 
       attempt = 0
-      begin
+      loop do
         attempt += 1
-        path = uri.path.to_s.empty? ? '/' : uri.path.to_s
-        path += "?#{uri.query}" if uri.respond_to?(:query) && uri.query
-        raw = connection(uri).get(path)
-        if raw.status >= 500 && attempt <= @max_retries
-          @sleeper.call(2**(attempt - 1))
-          raise Retryable, 'retryable response'
+        begin
+          response = download(uri)
+          return response unless response.status >= 500 && attempt <= @max_retries
+        rescue BodyTooLarge
+          raise Adapters::HttpError, "response too large (over #{MAX_BODY_BYTES / (1024 * 1024)} MB)"
+        rescue Net::OpenTimeout, Net::ReadTimeout, SocketError, SystemCallError, EOFError, OpenSSL::SSL::SSLError => e
+          raise Adapters::HttpError, "request failed after #{attempt} attempts: #{e.message}" if attempt > @max_retries
         end
 
-        Response.new(raw.status, raw.body.to_s, raw.headers)
-      rescue Retryable
-        retry
-      rescue Faraday::Error, SocketError, SystemCallError => e
-        if attempt <= @max_retries
-          @sleeper.call(2**(attempt - 1))
-          retry
-        end
-
-        raise Adapters::HttpError, "request failed after #{attempt} attempts: #{e.message}"
+        @sleeper.call(2**(attempt - 1))
       end
     end
 
-    def connection(uri)
-      @connections[uri.host] ||= Faraday.new(url: base_url(uri)) do |f|
-        f.headers['User-Agent'] = USER_AGENT
-        f.headers['Accept'] = 'text/html,application/xhtml+xml'
-        f.options.open_timeout = OPEN_TIMEOUT
-        f.options.timeout = READ_TIMEOUT
+    def download(uri)
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = uri.scheme == 'https'
+      http.open_timeout = OPEN_TIMEOUT
+      http.read_timeout = READ_TIMEOUT
+      http.max_retries = 0
+
+      request = Net::HTTP::Get.new(path(uri))
+      request['User-Agent'] = @user_agent
+      request['Accept'] = 'text/html,application/xhtml+xml'
+
+      body = +''
+      status = nil
+      headers = {}
+      http.request(request) do |response|
+        status = response.code.to_i
+        response.each_header { |key, value| headers[key] = value }
+        response.read_body do |chunk|
+          body << chunk
+          raise BodyTooLarge if body.bytesize > MAX_BODY_BYTES
+        end
       end
+
+      Response.new(status, body, headers)
     end
 
-    def base_url(uri)
-      default_port = uri.scheme == 'https' ? 443 : 80
-      port = uri.port && uri.port != default_port ? ":#{uri.port}" : ''
-      "#{uri.scheme}://#{uri.host}#{port}"
+    def path(uri)
+      base = uri.path.to_s.empty? ? '/' : uri.path.to_s
+      uri.query ? "#{base}?#{uri.query}" : base
     end
   end
-
-  # Internal control-flow marker for the retry loop.
-  class Retryable < StandardError; end
 end

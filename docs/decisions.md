@@ -25,7 +25,7 @@
 
 ## 2026-11-16: robots.txt handling
 
-- Conservative subset of RFC 9309: groups separated by blank lines (or a user-agent line after rules), the most specific matching group wins, longest Allow/Disallow prefix decides within the group, Allow wins ties. Absent or unreadable robots.txt allows the fetch. Specific rules for our user agent are honored, wildcard groups otherwise.
+- Conservative subset of RFC 9309: groups separated by blank lines (or a user-agent line after rules), the most specific matching group wins, longest Allow/Disallow prefix decides within the group, Allow wins ties. Absent robots.txt (404) allows fetching. Any other failure to verify robots.txt (5xx, timeouts, parse errors) refuses the fetch: Stoop honors robots.txt and will not fetch what it cannot check.
 
 ## 2026-11-16: Notification dedup and cooldown
 
@@ -45,5 +45,6 @@
 ## 2026-11-16: CI notes
 
 - GitHub Actions CI runs rubocop, rspec and a stdlib-coverage gate (parser and rules files must stay above 80%) on Ubuntu, Windows and macOS against Ruby 3.2 to 3.4, plus a gitleaks secret scan.
-- The workflow configures a gem source mirror for reliability of gem downloads; gems install from the mirror, but CI remains the source of truth for the lockfile.
+- The workflow configures a gem source mirror for reliability of gem downloads; every gem is verified by SHA256 against `Gemfile.lock` (CHECKSUMS) before use, so the mirror cannot serve tampered gems.
+- Actions are pinned to full commit SHAs (checkout, setup-ruby, gitleaks). Dependency CVEs are caught by GitHub Dependabot plus Dependency Graph alerts; `Gemfile.lock` is locked and updated weekly via `.github/dependabot.yml`.
 

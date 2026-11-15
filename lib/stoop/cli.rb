@@ -76,7 +76,7 @@ module Stoop
     def remove(id)
       product = find_product_or_fail(id)
       db.delete_product(product['id'])
-      puts "Removed product ##{product['id']}: #{product['name']}"
+      puts "Removed product ##{product['id']}: #{Format.plain(product['name'])}"
     end
 
     desc 'check [ID]', 'Check current prices (all active products, or one ID)'
@@ -166,8 +166,8 @@ module Stoop
       points = db.price_history(product['id'], limit: options[:limit])
       fail_with("No price history for product ##{product['id']} yet. Run: stoop check") if points.empty?
 
-      puts product['name']
-      puts product['url']
+      puts Format.plain(product['name'])
+      puts Format.plain(product['url'])
       rows = []
       previous = nil
       points.each do |point|
@@ -206,7 +206,8 @@ module Stoop
       end
 
       def report_added(id, name, uri, target)
-        puts "Added product ##{id}: #{name}"
+        clean = Format.plain(name)
+        puts "Added product ##{id}: #{clean}"
         puts "  URL: #{uri}"
         puts "  Target: #{target ? Format.price(target.to_i) : '(not set)'}"
       end
