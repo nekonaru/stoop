@@ -24,7 +24,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p ~/.bundle
-          printf '---\nBUNDLE_MIRROR__HTTPS://INDEX__RUBYGEMS__ORG/: "https://mirrors.tuna.tsinghua.edu.cn/rubygems"\n' > ~/.bundle/config
+          printf '%s\n' '---' 'BUNDLE_MIRROR__HTTPS://INDEX__RUBYGEMS__ORG/: "https://mirrors.tuna.tsinghua.edu.cn/rubygems"' > ~/.bundle/config
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
