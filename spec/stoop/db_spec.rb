@@ -12,7 +12,7 @@ RSpec.describe Stoop::DB do
 
   after do
     db.close
-    FileUtils.remove_entry(dir)
+    remove_tree(dir)
   end
 
   it 'creates the schema on first use' do
