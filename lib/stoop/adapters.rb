@@ -11,10 +11,10 @@ module Stoop
   module Adapters
     SITE_ADAPTERS = [ExampleShop].freeze
 
-    def self.for_url(url)
+    def self.for_url(url, http_client: nil)
       host = URI.parse(url).host.to_s.downcase
       adapter_class = SITE_ADAPTERS.find { |klass| klass::SITE_DOMAINS.include?(host) }
-      (adapter_class || Generic).new
+      (adapter_class || Generic).new(http_client: http_client || HttpClient.new)
     end
   end
 end

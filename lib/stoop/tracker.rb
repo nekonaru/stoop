@@ -17,7 +17,8 @@ module Stoop
     def initialize(db:, config: Config.load, notifier: :auto, adapter_factory: nil)
       @db = db
       @config = config
-      @adapter_factory = adapter_factory || ->(url) { Adapters.for_url(url) }
+      @configured_http_client = @config['user_agent'] ? HttpClient.new(user_agent: @config['user_agent']) : nil
+      @adapter_factory = adapter_factory || ->(url) { Adapters.for_url(url, http_client: @configured_http_client) }
       @notifier = build_notifier(notifier)
     end
 
@@ -122,7 +123,7 @@ module Stoop
     def notify_stale(product, failures)
       return if @notifier.nil?
 
-      @notifier.deliver("Stoop: #{product['name']} gagal dipantau #{failures}x berturut-turut. " \
+      @notifier.deliver("Stoop: #{Stoop::Format.plain(product['name'])} gagal dipantau #{failures}x berturut-turut. " \
                         "Cek URL dan adapter, lalu jalankan stoop check #{product['id']}.\n#{product['url']}")
     rescue Notifiers::NotifierError
       nil
@@ -130,7 +131,7 @@ module Stoop
 
     def notification_message(product, result, decision)
       previous = @db.previous_price_point(product['id'])
-      lines = ["Stoop: #{product['name']}"]
+      lines = ["Stoop: #{Stoop::Format.plain(product['name'])}"]
       lines << "Sekarang: Rp #{format_price(result.price)}"
       lines << "Sebelumnya: Rp #{format_price(previous['price'])}" if previous
       lines << "Target: Rp #{format_price(product['target_price'])}" if product['target_price']
