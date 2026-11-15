@@ -25,18 +25,12 @@ jobs:
         run: |
           mkdir -p ~/.bundle
           printf '%s\n' '---' 'BUNDLE_MIRROR__HTTPS://INDEX__RUBYGEMS__ORG/: "https://mirrors.tuna.tsinghua.edu.cn/rubygems"' > ~/.bundle/config
-      - name: Probe gem sources
-        shell: bash
-        run: |
-          curl -sS -o /dev/null -w "tuna-versions: %{http_code} %{time_total}s\n" --max-time 60 https://mirrors.tuna.tsinghua.edu.cn/rubygems/versions || true
-          curl -sS -o /dev/null -w "rg-versions: %{http_code} %{time_total}s\n" --max-time 60 https://index.rubygems.org/versions || true
-          curl -sS -o /dev/null -w "rg-info-sqlite3: %{http_code} %{time_total}s\n" --max-time 30 https://index.rubygems.org/info/sqlite3 || true
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
       - name: Install gems
         shell: bash
-        run: bundle install --jobs 4 --verbose
+        run: bundle install --jobs 4
       - run: bundle exec rubocop
       - run: bundle exec rspec
       - name: Check coverage of parser and rules
