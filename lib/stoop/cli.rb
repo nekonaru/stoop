@@ -51,7 +51,7 @@ module Stoop
       report_added(id, name, uri, options[:target])
     rescue SQLite3::ConstraintException
       existing = db.find_product_by_url(uri.to_s)
-      fail_with("already in watchlist as ##{existing['id']}: #{existing['name']}")
+      fail_with("already in watchlist as ##{existing['id']}: #{Format.plain(existing['name'])}")
     end
 
     desc 'list', 'List watchlist products'
@@ -196,13 +196,14 @@ module Stoop
       end
 
       def log_outcome(timestamp, outcome)
+        name = Format.plain(outcome.name)
         if outcome.error
-          warn "[#{timestamp}] ##{outcome.product_id} #{outcome.name}: gagal: #{outcome.error}"
+          warn "[#{timestamp}] ##{outcome.product_id} #{name}: gagal: #{Format.plain(outcome.error)}"
           return
         end
 
         suffix = outcome.notified ? ', notif terkirim' : ''
-        puts "[#{timestamp}] ##{outcome.product_id} #{outcome.name}: #{Format.price(outcome.price)}#{suffix}"
+        puts "[#{timestamp}] ##{outcome.product_id} #{name}: #{Format.price(outcome.price)}#{suffix}"
       end
 
       def report_added(id, name, uri, target)
@@ -214,7 +215,7 @@ module Stoop
 
       def report_outcome(outcome)
         if outcome.error
-          warn "  gagal: #{outcome.error}"
+          warn "  gagal: #{Format.plain(outcome.error)}"
           return
         end
 
