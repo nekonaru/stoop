@@ -42,7 +42,7 @@ module Stoop
       uri = parse_url(url)
       fail_with("URL must use http or https: #{url}") unless %w[http https].include?(uri.scheme)
 
-      name = options[:name] || fetch_name(uri.to_s) || uri.to_s
+      name = resolve_name(uri)
 
       id = db.add_product(name: name, url: uri.to_s,
                           target_price: options[:target]&.to_i,
@@ -223,6 +223,10 @@ module Stoop
         suffix = outcome.notified ? ', notif terkirim' : ''
         puts "##{outcome.product_id} #{Format.truncate(outcome.name,
                                                        40)}: #{Format.price(outcome.price)} (#{change}#{suffix})"
+      end
+
+      def resolve_name(uri)
+        options[:name] || fetch_name(uri.to_s) || uri.to_s
       end
 
       def fetch_name(url)
