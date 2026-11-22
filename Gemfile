@@ -13,6 +13,6 @@ gem 'thor', '~> 1.3'
 group :development, :test do
   gem 'rake', '~> 13.2'
   gem 'rspec', '~> 3.13'
-  gem 'rubocop', '~> 1.65'
+  gem 'rubocop', '~> 1.92'
   gem 'webmock', '~> 3.23'
 end
